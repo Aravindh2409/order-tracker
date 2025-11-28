@@ -1,7 +1,8 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://localhost:4000/api",
+  //baseURL: "http://localhost:4000/api",
+  baseURL: "https://order-tracker-production-535d.up.railway.app/api",
 });
 
 // Attach JWT token to every request
@@ -14,3 +15,5 @@ API.interceptors.request.use((config) => {
 });
 
 export default API;
+
+//https://order-tracker-production-535d.up.railway.app/
