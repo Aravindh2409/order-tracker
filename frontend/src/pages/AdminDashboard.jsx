@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import API from "../api";
 import SearchBar from "../components/SearchBar";
 import AddOrderForm from "../components/AddOrderForm";
@@ -11,54 +11,54 @@ export default function AdminDashboard() {
 
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadOrders();
-  }, []);
-
-  async function loadOrders() {
+  // FIX: Wrap loadOrders in useCallback so it can be added as a dependency safely
+  const loadOrders = useCallback(async () => {
     try {
       const res = await API.get("/orders");
       setOrders(res.data.orders);
     } catch (err) {
       if (err.response?.status === 401) navigate("/admin/login");
     }
-  }
+  }, [navigate]);
 
-  async function handleDelete(id) {
-  const confirmDelete = window.confirm("Are you sure you want to delete this order?");
-  if (!confirmDelete) return;
-
-  try {
-    await API.delete(`/orders/${id}`);
+  // FIX: Add loadOrders as dependency
+  useEffect(() => {
     loadOrders();
-    setSelected(null);
-    alert("Order deleted successfully");
-  } catch (err) {
-    console.error("Delete error:", err);
-    alert("Failed to delete order");
-  }
-}
+  }, [loadOrders]);
 
+  const handleDelete = async (id) => {
+    const confirmDelete = window.confirm("Are you sure you want to delete this order?");
+    if (!confirmDelete) return;
 
-  async function selectOrder(order) {
+    try {
+      await API.delete(`/orders/${id}`);
+      loadOrders();
+      setSelected(null);
+      alert("Order deleted successfully");
+    } catch (err) {
+      console.error("Delete error:", err);
+      alert("Failed to delete order");
+    }
+  };
+
+  const selectOrder = async (order) => {
     const res = await API.get(`/orders/${order.id}`);
     setSelected(res.data.order);
-  }
+  };
 
-  async function updateStatus(id, status) {
+  const updateStatus = async (id, status) => {
     await API.patch(`/orders/${id}/status`, { status });
     loadOrders();
     setSelected(null);
-  }
+  };
 
-  function logout() {
+  const logout = () => {
     localStorage.removeItem("token");
     navigate("/");
-  }
+  };
 
   return (
     <div className="container-fluid p-4">
-
       <div className="d-flex justify-content-between mb-3">
         <div className="w-50">
           <SearchBar onSelect={selectOrder} />
@@ -66,7 +66,9 @@ export default function AdminDashboard() {
         <button className="btn btn-primary" onClick={() => setShowAddOrder(true)}>
           + New Order
         </button>
-        <button className="btn btn-outline-danger ms-2" onClick={logout}>Logout</button>
+        <button className="btn btn-outline-danger ms-2" onClick={logout}>
+          Logout
+        </button>
       </div>
 
       <div className="row">
@@ -87,7 +89,11 @@ export default function AdminDashboard() {
               </thead>
               <tbody>
                 {orders.map((o) => (
-                  <tr key={o.id} onClick={() => selectOrder(o)} style={{ cursor: "pointer" }}>
+                  <tr
+                    key={o.id}
+                    onClick={() => selectOrder(o)}
+                    style={{ cursor: "pointer" }}
+                  >
                     <td>{o.order_code}</td>
                     <td>{o.product_name}</td>
                     <td>{o.customer_name}</td>
@@ -114,12 +120,14 @@ export default function AdminDashboard() {
                 <p><strong>Status:</strong> {selected.status}</p>
 
                 <h6>Update Status:</h6>
-                <button 
-  className="btn btn-danger btn-sm mb-3"
-  onClick={() => handleDelete(selected.id)}
->
-  Delete Order
-</button>
+
+                <button
+                  className="btn btn-danger btn-sm mb-3"
+                  onClick={() => handleDelete(selected.id)}
+                >
+                  Delete Order
+                </button>
+
                 <div className="d-flex gap-2 mt-2">
                   {["registered", "processing", "completing", "completed"].map((s) => (
                     <button
