@@ -16,6 +16,7 @@ router.get('/by-code/:code', getOrderByCode);
 // ADMIN ONLY below this line
 router.use(requireAuth);
 
+router.get("/deleted/all", requireAuth, listDeletedOrders);
 router.post('/', createOrder);
 router.get('/', listOrders);
 router.get('/:id', getOrder);

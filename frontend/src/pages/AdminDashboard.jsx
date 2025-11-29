@@ -8,6 +8,8 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState([]);
   const [selected, setSelected] = useState(null);
   const [showAddOrder, setShowAddOrder] = useState(false);
+  const [activeTab, setActiveTab] = useState("pending");
+
 
   const navigate = useNavigate();
 
@@ -57,6 +59,27 @@ export default function AdminDashboard() {
     navigate("/");
   };
 
+  const loadDeletedOrders = async () => {
+  try {
+    const res = await API.get("/orders/deleted/all");
+    setOrders(res.data.orders);
+    setSelected(null);
+    setActiveTab("deleted");
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+  // Filter orders based on selected tab
+const filteredOrders =
+  activeTab === "pending"
+    ? orders.filter((o) => o.status !== "completed" && o.is_deleted !== 1)
+    : activeTab === "completed"
+    ? orders.filter((o) => o.status === "completed" && o.is_deleted !== 1)
+    : orders.filter((o) => o.is_deleted === 1); // Deleted tab
+
+
+
   return (
     <div className="container-fluid p-4">
       <div className="d-flex justify-content-between mb-3">
@@ -75,7 +98,34 @@ export default function AdminDashboard() {
         {/* Orders table */}
         <div className="col-md-8">
           <div className="card p-3">
-            <h5>Recent Orders</h5>
+            <div className="d-flex justify-content-between align-items-center">
+  <h5 className="m-0">Orders</h5>
+
+  <div className="btn-group mb-3">
+  <button
+    className={`btn ${activeTab === "pending" ? "btn-primary" : "btn-outline-primary"}`}
+    onClick={() => setActiveTab("pending")}
+  >
+    Pending
+  </button>
+
+  <button
+    className={`btn ${activeTab === "completed" ? "btn-primary" : "btn-outline-primary"}`}
+    onClick={() => setActiveTab("completed")}
+  >
+    Completed
+  </button>
+
+  <button
+    className={`btn ${activeTab === "deleted" ? "btn-primary" : "btn-outline-primary"}`}
+    onClick={loadDeletedOrders}
+  >
+    Deleted
+  </button>
+</div>
+
+</div>
+
             <table className="table table-striped mt-3">
               <thead>
                 <tr>
@@ -88,7 +138,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((o) => (
+                {filteredOrders.map((o) => (
                   <tr
                     key={o.id}
                     onClick={() => selectOrder(o)}

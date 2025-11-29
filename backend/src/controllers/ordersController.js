@@ -37,9 +37,13 @@ async function createOrder(req, res) {
 
 async function listOrders(req, res) {
   try {
-    const [rows] = await db.query(
-      `SELECT * FROM orders ORDER BY updated_at DESC LIMIT 200`
-    );
+    const [rows] = await db.query(`
+  SELECT * FROM orders 
+  WHERE is_deleted = 0
+  ORDER BY updated_at DESC
+  LIMIT 200
+`);
+
     res.json({ orders: rows });
   } catch (err) {
     console.error("listOrders error:", err);
@@ -101,7 +105,9 @@ async function getOrderByCode(req, res) {
 async function deleteOrder(req, res) {
   try {
     const { id } = req.params;
-    await db.query(`DELETE FROM orders WHERE id = ?`, [id]);
+
+    await db.query("DELETE FROM orders WHERE id = ?", [id]);
+
     res.json({ success: true, message: "Order deleted successfully" });
   } catch (err) {
     console.error("deleteOrder error:", err);
@@ -109,11 +115,27 @@ async function deleteOrder(req, res) {
   }
 }
 
+async function listDeletedOrders(req, res) {
+  try {
+    const [rows] = await db.query(`
+      SELECT * FROM orders 
+      WHERE is_deleted = 1
+      ORDER BY updated_at DESC
+    `);
+    res.json({ orders: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'list deleted failed' });
+  }
+}
+
+
 module.exports = {
   createOrder,
   listOrders,
   getOrder,
   updateStatus,
   getOrderByCode,
-  deleteOrder
+  deleteOrder,
+  listDeletedOrders
 };
