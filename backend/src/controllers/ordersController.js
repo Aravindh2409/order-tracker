@@ -28,6 +28,27 @@ async function createOrder(req, res) {
   }
 }
 
+async function getOrderByCode(req, res) {
+  try {
+    const { code } = req.params;
+
+    const [rows] = await db.query(
+      `SELECT * FROM orders WHERE order_code = ? AND is_deleted = 0`,
+      [code]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ error: "not found" });
+    }
+
+    res.json({ order: rows[0] });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "tracking failed" });
+  }
+}
+
 
 // PENDING ORDERS  (is_deleted = 0 AND status != completed)
 async function listPending(req, res) {
@@ -139,5 +160,6 @@ module.exports = {
   listDeleted,
   getOrder,
   updateStatus,
-  deleteOrder
+  deleteOrder,
+  getOrderByCode
 };
