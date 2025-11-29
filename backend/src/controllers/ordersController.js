@@ -1,13 +1,9 @@
 const db = require('../db');
 
+// CREATE
 async function createOrder(req, res) {
   try {
-    const {
-      product_name,
-      customer_name,
-      quantity,
-      product_description
-    } = req.body;
+    const { product_name, customer_name, quantity, product_description } = req.body;
 
     const [result] = await db.query(
       `INSERT INTO orders (product_name, customer_name, quantity, product_description)
@@ -24,118 +20,124 @@ async function createOrder(req, res) {
       newId,
     ]);
 
-    res.json({
-      success: true,
-      message: "Order created successfully",
-      order_code,
-    });
+    res.json({ success: true, message: "Order created", order_code });
+
   } catch (err) {
-    console.error("createOrder error:", err);
-    res.status(500).json({ error: "Order creation failed" });
+    console.error(err);
+    res.status(500).json({ error: "create failed" });
   }
 }
 
-async function listOrders(req, res) {
+
+// PENDING ORDERS  (is_deleted = 0 AND status != completed)
+async function listPending(req, res) {
   try {
-    const [rows] = await db.query(`
-  SELECT * FROM orders 
-  WHERE is_deleted = 0
-  ORDER BY updated_at DESC
-  LIMIT 200
-`);
-
+    const [rows] = await db.query(
+      `SELECT * FROM orders
+       WHERE is_deleted = 0 AND status != 'completed'
+       ORDER BY updated_at DESC`
+    );
     res.json({ orders: rows });
-  } catch (err) {
-    console.error("listOrders error:", err);
-    res.status(500).json({ error: "list failed" });
+  } catch {
+    res.status(500).json({ error: "pending list failed" });
   }
 }
 
+
+// COMPLETED ORDERS  (is_deleted = 0 AND status = completed)
+async function listCompleted(req, res) {
+  try {
+    const [rows] = await db.query(
+      `SELECT * FROM orders
+       WHERE is_deleted = 0 AND status = 'completed'
+       ORDER BY updated_at DESC`
+    );
+    res.json({ orders: rows });
+  } catch {
+    res.status(500).json({ error: "completed list failed" });
+  }
+}
+
+
+// DELETED ORDERS (is_deleted = 1)
+async function listDeleted(req, res) {
+  try {
+    const [rows] = await db.query(
+      `SELECT * FROM orders
+       WHERE is_deleted = 1
+       ORDER BY updated_at DESC`
+    );
+    res.json({ orders: rows });
+  } catch {
+    res.status(500).json({ error: "deleted list failed" });
+  }
+}
+
+
+// GET SINGLE ORDER
 async function getOrder(req, res) {
   try {
     const { id } = req.params;
-    const [rows] = await db.query(`SELECT * FROM orders WHERE id = ?`, [id]);
+
+    const [rows] = await db.query(
+      `SELECT * FROM orders WHERE id = ?`,
+      [id]
+    );
 
     if (!rows.length)
       return res.status(404).json({ error: "not found" });
 
     res.json({ order: rows[0] });
-  } catch (err) {
-    console.error("getOrder error:", err);
+
+  } catch {
     res.status(500).json({ error: "get failed" });
   }
 }
 
+
+// UPDATE STATUS
 async function updateStatus(req, res) {
   try {
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!["registered", "processing", "completing", "completed"].includes(status))
-      return res.status(400).json({ error: "invalid status" });
-
-    await db.query(`UPDATE orders SET status = ? WHERE id = ?`, [status, id]);
+    await db.query(
+      `UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?`,
+      [status, id]
+    );
 
     const [rows] = await db.query(`SELECT * FROM orders WHERE id = ?`, [id]);
     res.json({ order: rows[0] });
-  } catch (err) {
-    console.error("updateStatus error:", err);
+
+  } catch {
     res.status(500).json({ error: "update failed" });
   }
 }
 
-async function getOrderByCode(req, res) {
-  try {
-    const { code } = req.params;
-    const [rows] = await db.query(
-      `SELECT * FROM orders WHERE order_code = ?`,
-      [code]
-    );
 
-    if (!rows.length)
-      return res.status(404).json({ error: "Order not found" });
-
-    res.json({ order: rows[0] });
-  } catch (err) {
-    console.error("getOrderByCode error", err);
-    res.status(500).json({ error: "get by code failed" });
-  }
-}
-
+// DELETE (SET is_deleted = 1)
 async function deleteOrder(req, res) {
   try {
     const { id } = req.params;
 
-    await db.query("DELETE FROM orders WHERE id = ?", [id]);
+    await db.query(
+      `UPDATE orders SET is_deleted = 1, updated_at = NOW() WHERE id = ?`,
+      [id]
+    );
 
-    res.json({ success: true, message: "Order deleted successfully" });
-  } catch (err) {
-    console.error("deleteOrder error:", err);
-    res.status(500).json({ error: "Delete failed" });
+    res.json({ success: true });
+
+  } catch {
+    res.status(500).json({ error: "delete failed" });
   }
 }
-
-async function listDeletedOrders(req, res) {
-  try {
-    const [rows] = await db.query(`
-      SELECT * FROM orders 
-      WHERE is_deleted = 1
-      ORDER BY updated_at DESC
-    `);
-    res.json({ orders: rows });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'list deleted failed' });
-  }
-}
-
 
 module.exports = {
   createOrder,
-  listOrders,
+  listPending,
+  listCompleted,
+  listDeleted,
   getOrder,
   updateStatus,
-  getOrderByCode,
-  deleteOrder,
-  listDeletedOrders
+  deleteOrder
 };

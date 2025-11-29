@@ -1,27 +1,29 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
+
 const {
   createOrder,
-  listOrders,
+  listPending,
+  listCompleted,
+  listDeleted,
   getOrder,
   updateStatus,
-  getOrderByCode,
   deleteOrder,
-  listDeletedOrders
-} = require('../controllers/ordersController');
-const { requireAuth } = require('../middleware/authMiddleware');
+} = require("../controllers/ordersController");
 
-// PUBLIC: customer tracking by order code
-router.get('/by-code/:code', getOrderByCode);
+const { requireAuth } = require("../middleware/authMiddleware");
 
-// ADMIN ONLY below this line
-router.use(requireAuth);
+// LIST ROUTES
+router.get("/pending/all", requireAuth, listPending);
+router.get("/completed/all", requireAuth, listCompleted);
+router.get("/deleted/all", requireAuth, listDeleted);
 
-router.get("/deleted/all", requireAuth, listDeletedOrders);
-router.post('/', createOrder);
-router.get('/', listOrders);
-router.get('/:id', getOrder);
-router.patch('/:id/status', updateStatus);
-router.delete("/:id", deleteOrder);
+// CREATE / UPDATE / DELETE ROUTES
+router.post("/", requireAuth, createOrder);
+router.patch("/:id/status", requireAuth, updateStatus);
+router.delete("/:id", requireAuth, deleteOrder);
+
+// SINGLE ORDER (KEEP **LAST**)
+router.get("/:id", requireAuth, getOrder);
 
 module.exports = router;
