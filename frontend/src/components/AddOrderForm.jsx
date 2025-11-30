@@ -1,112 +1,125 @@
-import React, { useState } from 'react';
-import API from '../api';
+import React, { useState } from "react";
+import { Box, TextField, Stack, Button } from "@mui/material";
+import API from "../api";
 
 export default function AddOrderForm({ onClose, onCreated }) {
-  const [product_name, setProductName] = useState('');
-  const [customer_name, setCustomerName] = useState('');
-  const [product_description, setProductDescription] = useState('');
+  const [productName, setProductName] = useState("");
+  const [customerName, setCustomerName] = useState("");
   const [quantity, setQuantity] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [productDescription, setProductDescription] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  async function submitForm(e) {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    if (!productName || !customerName||!customerEmail) return;
 
     try {
-      await API.post('/orders', {
-        product_name,
-        customer_name,
-        product_description,
-        quantity
+      setSubmitting(true);
+
+      await API.post("/orders", {
+        product_name: productName,
+        customer_name: customerName,
+        quantity: Number(quantity) || 1,
+        product_description: productDescription,
+        customer_email: customerEmail ,
+        customer_phone: customerPhone ,
       });
 
-      setLoading(false);
-      onCreated();  // refresh orders table
-      onClose();    // close popup
+      if (typeof onCreated === "function") {
+        onCreated();
+      }
+      if (typeof onClose === "function") {
+        onClose();
+      }
     } catch (err) {
       console.error(err);
-      alert('Failed to create order');
-      setLoading(false);
+      alert("Failed to create order");
+    } finally {
+      setSubmitting(false);
     }
-  }
+  };
 
   return (
-    <div
-      className="card p-3"
-      style={{
-        width: '400px',
-        background: '#fff',
-        borderRadius: '10px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
-      }}
+    <Box
+      component="form"
+      onSubmit={handleSubmit}
+      sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}
     >
-      <h5 className="mb-3">Add New Order</h5>
+      <TextField
+        label="Product Name"
+        value={productName}
+        onChange={(e) => setProductName(e.target.value)}
+        fullWidth
+        required
+      />
 
-      <form onSubmit={submitForm}>
+      <TextField
+        label="Customer Name"
+        value={customerName}
+        onChange={(e) => setCustomerName(e.target.value)}
+        fullWidth
+        required
+      />
 
-        
+      {/* NEW: Customer Email */}
+      <TextField
+        label="Customer Email"
+        type="email"
+        value={customerEmail}
+        onChange={(e) => setCustomerEmail(e.target.value)}
+        fullWidth
+        placeholder="customer@example.com"
+      />
 
-        <div className="mb-3">
-          <label className="form-label">Product Name</label>
-          <input
-            className="form-control"
-            value={product_name}
-            onChange={(e) => setProductName(e.target.value)}
-            required
-          />
-        </div>
+      {/* NEW: Customer Phone (WhatsApp) */}
+      <TextField
+        label="Customer Phone (WhatsApp)"
+        type="tel"
+        value={customerPhone}
+        onChange={(e) => setCustomerPhone(e.target.value)}
+        fullWidth
+        placeholder="+91XXXXXXXXXX"
+      />
 
-        <div className="mb-3">
-          <label className="form-label">Customer Name</label>
-          <input
-            className="form-control"
-            value={customer_name}
-            onChange={(e) => setCustomerName(e.target.value)}
-            required
-          />
-        </div>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+        <TextField
+          label="Quantity"
+          type="number"
+          inputProps={{ min: 1 }}
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          fullWidth
+        />
+      </Stack>
 
-        <div className="mb-3">
-          <label className="form-label">Product Description</label>
-          <textarea
-            className="form-control"
-            value={product_description}
-            onChange={(e) => setProductDescription(e.target.value)}
-            rows="2"
-          />
-        </div>
+      <TextField
+        label="Product Description"
+        value={productDescription}
+        onChange={(e) => setProductDescription(e.target.value)}
+        fullWidth
+        multiline
+        minRows={3}
+      />
 
-        <div className="mb-3">
-          <label className="form-label">Quantity</label>
-          <input
-            type="number"
-            className="form-control"
-            min="1"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="d-flex justify-content-between mt-4">
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={loading}
-          >
-            {loading ? 'Saving...' : 'Create Order'}
-          </button>
-        </div>
-
-      </form>
-    </div>
+      <Stack
+        direction="row"
+        spacing={1}
+        justifyContent="flex-end"
+        sx={{ mt: 1 }}
+      >
+        <Button onClick={onClose} disabled={submitting}>
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          variant="contained"
+          disabled={submitting}
+        >
+          {submitting ? "Creating..." : "Create Order"}
+        </Button>
+      </Stack>
+    </Box>
   );
 }

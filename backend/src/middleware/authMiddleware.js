@@ -10,8 +10,8 @@ function requireAuth(req, res, next) {
   const token = authHeader.split(' ')[1];
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET || 'devsecret');
-    req.user = payload; // { id, email, role }
+   const payload = jwt.verify(token, process.env.JWT_SECRET || 'devsecret');
+   req.user = payload; // { id, email, role }
     next();
   } catch (err) {
     console.error('JWT verify error', err);

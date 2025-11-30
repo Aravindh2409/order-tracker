@@ -1,19 +1,46 @@
 const db = require('../db');
+const { sendOrderStatusNotification } = require('../utils/notifier');
+
+const { sendWhatsApp } = require('../utils/whatsapp');
 
 // CREATE
 async function createOrder(req, res) {
   try {
-    const { product_name, customer_name, quantity, product_description } = req.body;
+     console.log("REQ BODY:", req.body);
+    // throw new Error("INTENTIONAL ERROR FROM createOrder");
+    const {
+      product_name,
+      customer_name,
+      quantity,
+      product_description,
+      customer_email,   
+      customer_phone,   
+    } = req.body;
 
     const [result] = await db.query(
-      `INSERT INTO orders (product_name, customer_name, quantity, product_description)
-       VALUES (?, ?, ?, ?)`,
-      [product_name, customer_name, quantity, product_description]
+      `INSERT INTO orders (
+        product_name,
+        customer_name,
+        quantity,
+        product_description,
+        customer_email,
+        customer_phone
+      )
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        product_name,
+        customer_name,
+        quantity,
+        product_description,
+        customer_email || null,
+        customer_phone || null,
+      ]
     );
 
     const newId = result.insertId;
-    const prefix = customer_name.substring(0, 3).toUpperCase();
-    const order_code = `${prefix}_${newId}`;
+    //const prefix = customer_name.substring(0, 3).toUpperCase();
+    const order_code = `ORD-${String(newId).padStart(4, '0')}`;
+
 
     await db.query(`UPDATE orders SET order_code = ? WHERE id = ?`, [
       order_code,
@@ -21,6 +48,16 @@ async function createOrder(req, res) {
     ]);
 
     res.json({ success: true, message: "Order created", order_code });
+    if (customer_phone) {
+  const waMessage =
+    `Hi ${customer_name}! 👋\n\n` +
+    `Your order *${order_code}* has been *registered*.\n\n` +
+    `Product: ${product_name}\n` +
+    `Quantity: ${quantity}\n\n` +
+    `We'll notify you as it moves to processing, completing, and completed.`;
+
+  sendWhatsApp(customer_phone, waMessage);
+}
 
   } catch (err) {
     console.error(err);
@@ -49,7 +86,6 @@ async function getOrderByCode(req, res) {
   }
 }
 
-
 // PENDING ORDERS  (is_deleted = 0 AND status != completed)
 async function listPending(req, res) {
   try {
@@ -59,11 +95,11 @@ async function listPending(req, res) {
        ORDER BY updated_at DESC`
     );
     res.json({ orders: rows });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "pending list failed" });
   }
 }
-
 
 // COMPLETED ORDERS  (is_deleted = 0 AND status = completed)
 async function listCompleted(req, res) {
@@ -74,11 +110,11 @@ async function listCompleted(req, res) {
        ORDER BY updated_at DESC`
     );
     res.json({ orders: rows });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "completed list failed" });
   }
 }
-
 
 // DELETED ORDERS (is_deleted = 1)
 async function listDeleted(req, res) {
@@ -89,11 +125,11 @@ async function listDeleted(req, res) {
        ORDER BY updated_at DESC`
     );
     res.json({ orders: rows });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "deleted list failed" });
   }
 }
-
 
 // GET SINGLE ORDER
 async function getOrder(req, res) {
@@ -110,11 +146,11 @@ async function getOrder(req, res) {
 
     res.json({ order: rows[0] });
 
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "get failed" });
   }
 }
-
 
 // UPDATE STATUS
 async function updateStatus(req, res) {
@@ -128,13 +164,33 @@ async function updateStatus(req, res) {
     );
 
     const [rows] = await db.query(`SELECT * FROM orders WHERE id = ?`, [id]);
-    res.json({ order: rows[0] });
+    const updatedOrder = rows[0];
 
-  } catch {
+    // send email / notification (if email exists)
+    sendOrderStatusNotification(updatedOrder).catch(err =>
+      console.error("Notification error (email):", err)
+    );
+
+    // 📲 send WhatsApp notification (if phone exists)
+    if (updatedOrder.customer_phone) {
+      const waMessage =
+        `Hi ${updatedOrder.customer_name},\n\n` +
+        `Your order *${updatedOrder.order_code || `#${updatedOrder.id}`}* ` +
+        `for "${updatedOrder.product_name}" is now *${status}*.\n\n` +
+        `Thank you!`;
+
+      // fire-and-forget so it doesn't block response
+      sendWhatsApp(updatedOrder.customer_phone, waMessage)
+        .catch(err => console.error("Notification error (WhatsApp):", err));
+    }
+
+    res.json({ order: updatedOrder });
+
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "update failed" });
   }
 }
-
 
 // DELETE (SET is_deleted = 1)
 async function deleteOrder(req, res) {
@@ -148,7 +204,8 @@ async function deleteOrder(req, res) {
 
     res.json({ success: true });
 
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "delete failed" });
   }
 }
@@ -161,5 +218,5 @@ module.exports = {
   getOrder,
   updateStatus,
   deleteOrder,
-  getOrderByCode
+  getOrderByCode,
 };
